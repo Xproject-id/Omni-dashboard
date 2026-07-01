@@ -5,6 +5,8 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/supabase'],
   supabase: {
     redirect: false,
+    url: process.env.NUXT_PUBLIC_SUPABASE_URL,
+    key: process.env.NUXT_PUBLIC_SUPABASE_KEY,
   },
   ssr: false,
   css: ['~/assets/css/main.css'],
