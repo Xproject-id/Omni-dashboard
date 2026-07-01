@@ -546,7 +546,7 @@ async function saveSale() {
   saving.value = true
   const total = form.value.quantity * form.value.price_per_item
 
-  const { error: saleError } = await supabase.from('sales').insert({
+  const { error: saleError } = await (supabase as any).from('sales').insert({
     product_id: form.value.product_id,
     platform_id: form.value.platform_id,
     quantity: form.value.quantity,
@@ -558,7 +558,7 @@ async function saveSale() {
 
   // Deduct stock
   if (sp) {
-    await supabase.from('products').update({ stock: sp.stock - form.value.quantity }).eq('id', form.value.product_id)
+    await (supabase as any).from('products').update({ stock: sp.stock - form.value.quantity }).eq('id', form.value.product_id)
   }
 
   saving.value = false
