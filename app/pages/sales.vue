@@ -18,7 +18,7 @@
     <div class="grid grid-cols-3" style="margin-bottom: 24px;">
       <div class="card summary-mini-card">
         <p class="text-xs text-muted" style="text-transform: uppercase; letter-spacing: 0.5px;">Total Transaksi</p>
-        <p class="summary-value">{{ sales.length }}</p>
+        <p class="summary-value">{{ filteredSales.length }}</p>
         <p class="text-xs text-muted">Semua platform</p>
       </div>
       <div class="card summary-mini-card">
@@ -30,6 +30,91 @@
         <p class="text-xs text-muted" style="text-transform: uppercase; letter-spacing: 0.5px;">Total Pendapatan</p>
         <p class="summary-value" style="font-size: 20px;">Rp {{ formatNum(totalRevenue) }}</p>
         <p class="text-xs text-muted">Semua platform</p>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-row" style="margin-bottom: 24px;" v-if="filteredSales.length > 0">
+      
+      <!-- Doughnut Chart — Platform Revenue Share -->
+      <div class="card chart-donut-card">
+        <div class="card-title-row">
+          <div>
+            <h2 class="card-title" style="margin-bottom: 2px;">Distribusi Pendapatan</h2>
+            <p class="text-sm text-muted">Berdasarkan filter saat ini</p>
+          </div>
+        </div>
+        <div v-if="loading" class="skeleton" style="height: 220px; border-radius: 12px; margin-top: 16px;"></div>
+        <div v-else class="donut-chart-wrap">
+          <div class="donut-canvas-wrap">
+            <Doughnut :data="donutChartData" :options="donutChartOptions" />
+            <div class="donut-center-label">
+              <p class="donut-center-val">Rp {{ formatShort(totalRevenue) }}</p>
+              <p class="donut-center-sub">Total</p>
+            </div>
+          </div>
+          <div class="donut-legend">
+            <div v-for="pl in platformStats" :key="pl.name" class="donut-legend-item">
+              <span class="donut-legend-dot" :style="{ background: pl.color }"></span>
+              <div class="donut-legend-info">
+                <p class="donut-legend-name">{{ pl.name }}</p>
+                <p class="donut-legend-val">Rp {{ formatNum(pl.revenue) }}</p>
+              </div>
+              <span class="donut-legend-pct" :style="{ color: pl.color }">{{ pl.percentage }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bar Chart — Revenue Trend -->
+      <div class="card chart-bar-card">
+        <div class="card-title-row">
+          <div>
+            <h2 class="card-title" style="margin-bottom: 2px;">Tren Penjualan Harian</h2>
+            <p class="text-sm text-muted">Berdasarkan data yang difilter</p>
+          </div>
+          <div class="chart-legend">
+            <span v-for="pl in platforms" :key="pl.name" class="legend-item">
+              <span class="platform-dot" :style="{ background: getPlatformColor(pl.name) }"></span>
+              {{ pl.name }}
+            </span>
+          </div>
+        </div>
+        <div v-if="loading" class="skeleton" style="height: 230px; border-radius: 12px; margin-top: 16px;"></div>
+        <div v-else class="bar-chart-wrap">
+          <Bar :data="barChartData" :options="barChartOptions" />
+        </div>
+      </div>
+
+      <!-- Horizontal Bar — Units Sold per Platform -->
+      <div class="card chart-units-card">
+        <div class="card-title-row">
+          <div>
+            <h2 class="card-title" style="margin-bottom: 2px;">Unit Terjual</h2>
+            <p class="text-sm text-muted">Berdasarkan platform</p>
+          </div>
+        </div>
+        <div v-if="loading" class="skeleton" style="height: 180px; border-radius: 12px; margin-top: 16px;"></div>
+        <div v-else class="units-chart-body">
+          <div v-for="pl in platformStats" :key="pl.name" class="units-row">
+            <div class="units-row-label">
+              <span class="platform-dot" :style="{ background: pl.color }"></span>
+              <span class="text-sm font-medium">{{ pl.name }}</span>
+            </div>
+            <div class="units-row-bar-wrap">
+              <div class="units-bar-track">
+                <div
+                  class="units-bar-fill"
+                  :style="{
+                    width: pl.qty > 0 ? (pl.qty / maxQty * 100) + '%' : '4px',
+                    background: pl.color
+                  }"
+                ></div>
+              </div>
+              <span class="units-row-val font-semibold" :style="{ color: pl.color }">{{ pl.qty.toLocaleString('id-ID') }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -217,10 +302,51 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { Bar, Doughnut } from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
 
 useHead({ title: 'Penjualan | Omni Dashboard' })
 
 const supabase = useSupabaseClient()
+
+// ── Helpers ────────────────────────────────────────────
+function formatNum(val: number) { return new Intl.NumberFormat('id-ID').format(val ?? 0) }
+function formatShort(val: number) {
+  if (val >= 1_000_000_000) return (val / 1_000_000_000).toFixed(1) + 'M'
+  if (val >= 1_000_000) return (val / 1_000_000).toFixed(1) + 'jt'
+  if (val >= 1_000) return (val / 1_000).toFixed(0) + 'rb'
+  return String(val)
+}
+
+function formatDate(d: string) {
+  if (!d) return '-'
+  return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+const platformColorMap: Record<string, string> = { Tokopedia: '#42B549', Shopee: '#EE4D2D', 'TikTok Shop': '#333' }
+function getPlatformColor(name?: string) { return platformColorMap[name ?? ''] ?? '#2563EB' }
+function getPlatformStyle(name?: string) {
+  const c = getPlatformColor(name)
+  return { background: c + '18', color: c }
+}
+
+let toastId = 0
+function showToast(message: string, type: 'success' | 'error' | 'info') {
+  const id = ++toastId
+  toasts.value.push({ id, message, type })
+  setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, 3500)
+}
 
 // ── State ──────────────────────────────────────────────
 const sales = ref<any[]>([])
@@ -256,7 +382,7 @@ const form = ref({
 const filteredSales = computed(() => {
   return sales.value.filter(s => {
     const q = search.value.toLowerCase()
-    const matchSearch = !q || (s.products?.name ?? '').toLowerCase().includes(q)
+    const matchSearch = !q || (s.products?.name ?? '').toLowerCase().includes(q) || (s.products?.sku ?? '').toLowerCase().includes(q)
     const matchPlatform = filterPlatform.value === 'all' || s.platform_id === Number(filterPlatform.value)
     const matchDate = !filterDate.value || (s.sale_date ?? '').startsWith(filterDate.value)
     return matchSearch && matchPlatform && matchDate
@@ -265,6 +391,119 @@ const filteredSales = computed(() => {
 
 const totalRevenue = computed(() => filteredSales.value.reduce((s, x) => s + Number(x.total_price), 0))
 const totalQty = computed(() => filteredSales.value.reduce((s, x) => s + Number(x.quantity), 0))
+
+// ── Chart Computeds ────────────────────────────────────
+const platformStats = computed(() => {
+  const totalRev = totalRevenue.value || 1
+  return platforms.value.map(pl => {
+    const pSales = filteredSales.value.filter(s => s.platform_id === pl.id)
+    const revenue = pSales.reduce((s, x) => s + Number(x.total_price), 0)
+    const qty = pSales.reduce((s, x) => s + Number(x.quantity), 0)
+    return {
+      name: pl.name,
+      color: getPlatformColor(pl.name),
+      revenue,
+      qty,
+      percentage: Math.round((revenue / totalRev) * 100),
+    }
+  }).sort((a, b) => b.revenue - a.revenue)
+})
+
+const maxQty = computed(() => Math.max(...platformStats.value.map(p => p.qty), 1))
+
+// Doughnut Chart Data
+const donutChartData = computed(() => ({
+  labels: platformStats.value.map(p => p.name),
+  datasets: [{
+    data: platformStats.value.map(p => p.revenue || 0),
+    backgroundColor: platformStats.value.map(p => p.color),
+    borderColor: '#ffffff',
+    borderWidth: 3,
+    hoverOffset: 8,
+  }],
+}))
+
+const donutChartOptions: any = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '72%',
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: 'white',
+      titleColor: '#0F172A',
+      bodyColor: '#475569',
+      borderColor: '#E2E8F7',
+      borderWidth: 1,
+      padding: 12,
+      callbacks: {
+        label: (ctx: any) => ` ${ctx.label}: Rp ${new Intl.NumberFormat('id-ID').format(ctx.parsed)}`,
+      },
+    },
+  },
+}
+
+// Bar Chart Data (Daily Trend over last 7 days)
+const chartLabels = computed(() => {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (6 - i))
+    return d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric' })
+  })
+})
+
+const barChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: platforms.value.map(pl => {
+    const data = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (6 - i))
+      const dateStr = d.toISOString().split('T')[0]
+      return filteredSales.value
+        .filter(s => s.platform_id === pl.id && (s.sale_date || '').startsWith(dateStr))
+        .reduce((sum, s) => sum + Number(s.total_price), 0)
+    })
+    return {
+      label: pl.name,
+      data,
+      backgroundColor: getPlatformColor(pl.name) + 'CC',
+      borderColor: getPlatformColor(pl.name),
+      borderWidth: 1.5,
+      borderRadius: 6,
+    }
+  }),
+}))
+
+const barChartOptions: any = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: 'white',
+      titleColor: '#0F172A',
+      bodyColor: '#475569',
+      borderColor: '#E2E8F7',
+      borderWidth: 1,
+      padding: 12,
+      callbacks: {
+        label: (ctx: any) => ` ${ctx.dataset.label}: Rp ${new Intl.NumberFormat('id-ID').format(ctx.parsed.y)}`,
+      },
+    },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 11 } } },
+    y: {
+      grid: { color: '#F0F4FF' },
+      ticks: {
+        color: '#94A3B8',
+        font: { size: 11 },
+        callback: (val: number) => val >= 1000000 ? 'Rp ' + (val / 1000000).toFixed(1) + 'jt' : 'Rp ' + new Intl.NumberFormat('id-ID').format(val),
+      },
+      border: { dash: [4, 4] },
+    },
+  },
+}
 
 // ── Fetch ──────────────────────────────────────────────
 async function fetchAll() {
@@ -340,27 +579,6 @@ async function deleteSale() {
   deleting.value = false
   deleteTarget.value = null
   fetchAll()
-}
-
-// ── Helpers ────────────────────────────────────────────
-function formatNum(val: number) { return new Intl.NumberFormat('id-ID').format(val ?? 0) }
-function formatDate(d: string) {
-  if (!d) return '-'
-  return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
-const platformColorMap: Record<string, string> = { Tokopedia: '#42B549', Shopee: '#EE4D2D', 'TikTok Shop': '#333' }
-function getPlatformColor(name?: string) { return platformColorMap[name ?? ''] ?? '#2563EB' }
-function getPlatformStyle(name?: string) {
-  const c = getPlatformColor(name)
-  return { background: c + '18', color: c }
-}
-
-let toastId = 0
-function showToast(message: string, type: 'success' | 'error' | 'info') {
-  const id = ++toastId
-  toasts.value.push({ id, message, type })
-  setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, 3500)
 }
 </script>
 
@@ -463,8 +681,157 @@ function showToast(message: string, type: 'success' | 'error' | 'info') {
   color: var(--color-primary);
 }
 
+/* === Charts CSS === */
+.charts-row {
+  display: grid;
+  grid-template-columns: 300px 1fr 260px;
+  gap: 20px;
+}
+
+.card-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Doughnut Chart */
+.donut-chart-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+.donut-canvas-wrap {
+  position: relative;
+  height: 180px;
+}
+.donut-center-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+.donut-center-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.3px;
+}
+.donut-center-sub {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.donut-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.donut-legend-info {
+  flex: 1;
+  min-width: 0;
+}
+.donut-legend-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.donut-legend-val {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.donut-legend-pct {
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Bar Chart */
+.bar-chart-wrap {
+  height: 230px;
+  margin-top: 16px;
+}
+.chart-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* Units Chart */
+.units-chart-body {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.units-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.units-row-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.units-row-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.units-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--color-bg-secondary);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.units-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  min-width: 4px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.units-row-val {
+  font-size: 13px;
+  min-width: 40px;
+  text-align: right;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 .spin-icon { animation: spin 1s linear infinite; }
+
+@media (max-width: 1200px) {
+  .charts-row { grid-template-columns: 1fr 1fr; }
+  .chart-units-card { grid-column: 1 / -1; }
+}
+@media (max-width: 900px) {
+  .charts-row { grid-template-columns: 1fr; }
+}
 </style>
