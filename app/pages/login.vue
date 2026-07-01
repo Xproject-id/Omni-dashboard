@@ -105,6 +105,21 @@
       </form>
     </div>
   </div>
+
+  <Teleport to="body">
+    <div v-if="loginSuccess" class="login-splash">
+      <div class="splash-logo">
+        <div class="logo-icon splash-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </div>
+        <p class="splash-text">Omni Dashboard</p>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -122,6 +137,7 @@ const loading = ref(false)
 const showPw = ref(false)
 const error = ref('')
 const successMsg = ref('')
+const loginSuccess = ref(false)
 
 const form = reactive({ name: '', email: '', password: '', confirmPassword: '' })
 
@@ -141,8 +157,11 @@ async function handleSubmit() {
     })
     if (err) { error.value = translateError(err.message); loading.value = false; return }
     
-    // Wait for Supabase Nuxt module to sync the user state before routing
-    await new Promise(r => setTimeout(r, 200))
+    // Show splash animation!
+    loginSuccess.value = true
+    
+    // Wait for Supabase Nuxt module to sync the user state AND for animation to play
+    await new Promise(r => setTimeout(r, 1400))
     router.push('/')
 
   } else {
@@ -266,10 +285,68 @@ function translateError(msg: string): string {
 .auth-tab:hover { color: var(--color-primary); }
 
 .auth-tab-active {
-  background: white !important;
-  color: var(--color-primary) !important;
+  background: var(--color-bg);
+  color: var(--color-primary);
   font-weight: 600;
-  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.1);
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* === Splash Screen Overlay === */
+.login-splash {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Fades in instantly, stays, then fades out smoothly */
+  animation: splashFadeIn 0.2s ease-out forwards, splashFadeOut 0.4s ease-in forwards 1.1s;
+}
+
+.splash-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  animation: splashZoom 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.splash-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 24px;
+}
+
+.splash-text {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  letter-spacing: -0.5px;
+  opacity: 0;
+  animation: textFadeUp 0.6s ease-out forwards 0.3s;
+}
+
+@keyframes splashFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes splashFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; pointer-events: none; }
+}
+
+@keyframes splashZoom {
+  0% { transform: scale(0.6) translateY(20px); opacity: 0; }
+  50% { transform: scale(1.05) translateY(0); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+@keyframes textFadeUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* === Form === */
