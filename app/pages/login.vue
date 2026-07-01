@@ -160,8 +160,8 @@ async function handleSubmit() {
     // Show splash animation!
     loginSuccess.value = true
     
-    // Wait for Supabase Nuxt module to sync the user state AND for animation to play
-    await new Promise(r => setTimeout(r, 1400))
+    // Wait for animation to zoom in fully (approx 800ms)
+    await new Promise(r => setTimeout(r, 900))
     router.push('/')
 
   } else {
@@ -301,8 +301,8 @@ function translateError(msg: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Fades in instantly, stays, then fades out smoothly */
-  animation: splashFadeIn 0.2s ease-out forwards, splashFadeOut 0.4s ease-in forwards 1.1s;
+  /* Fades in instantly, stays solid */
+  animation: splashFadeIn 0.2s ease-out forwards;
 }
 
 .splash-logo {
@@ -331,11 +331,6 @@ function translateError(msg: string): string {
 @keyframes splashFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-@keyframes splashFadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; pointer-events: none; }
 }
 
 @keyframes splashZoom {
