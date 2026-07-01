@@ -140,6 +140,9 @@ async function handleSubmit() {
       password: form.password,
     })
     if (err) { error.value = translateError(err.message); loading.value = false; return }
+    
+    // Wait for Supabase Nuxt module to sync the user state before routing
+    await new Promise(r => setTimeout(r, 200))
     router.push('/')
 
   } else {
@@ -207,13 +210,27 @@ function translateError(msg: string): string {
   width: 40px;
   height: 40px;
   background: var(--gradient-primary);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  animation: pulseLogo 2.5s infinite alternate ease-in-out;
+}
+
+@keyframes pulseLogo {
+  0% { transform: scale(1); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
+  100% { transform: scale(1.08); box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4); }
+}
+
+.logo-icon svg {
+  animation: floatSvg 3.5s infinite ease-in-out;
+}
+
+@keyframes floatSvg {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-2px) rotate(6deg); }
 }
 
 .logo-name {
